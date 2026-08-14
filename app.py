@@ -7,7 +7,7 @@ app = Flask(__name__)
 app.secret_key = "super_secret_cyber_key_rfg"  # Session encryption key
 
 # 🔗 আপনার GitHub-এর তথ্যগুলো এখানে সঠিকভাবে বসান
-GITHUB_TOKEN = "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"  # আপনার GitHub Personal Access Token
+GITHUB_TOKEN = "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"  # আপনার GitHub Personal Access Token
 REPO_OWNER = "accgojo911-ops"                      # আপনার গিটহাব ইউজারনেম
 REPO_NAME = "Know"                       # রেপোজিটরির নাম
 FILE_PATH = "H.txt"                                  # ফাইলের নাম (যেমন: users.txt)

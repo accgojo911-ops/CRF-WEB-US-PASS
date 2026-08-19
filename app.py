@@ -12,11 +12,11 @@ suffix = "p_"
 token_body = "sI4gU9ep84Pcv8C71thuaRh28c6fPy4HJk2k"
 GITHUB_TOKEN = prefix + suffix + token_body  # আপনার GitHub Personal Access Token
 REPO_OWNER = "accgojo911-ops"                      # আপনার গিটহাব ইউজারনেম
-REPO_NAME = "Know"                       # রেপোজিটরির নাম
+REPO_NAME = "Know"                               # রেপোজিটরির নাম
 FILE_PATH = "H.txt"                                  # ফাইলের নাম (যেমন: users.txt)
 
-def fetch_and_validate_user(username, password):
-    """GitHub REST API দিয়ে ইউজার ভ্যালিডেশন"""
+def fetch_and_validate_user(username, password, client_ip):
+    """GitHub REST API দিয়ে ইউজার ও IP ভ্যালিডেশন"""
     try:
         api_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
         
@@ -39,9 +39,19 @@ def fetch_and_validate_user(username, password):
                 continue
             
             parts = line.split('|')
-            if len(parts) == 4:
-                u, p, exp_date_str, credits_str = [x.strip() for x in parts]
+            # user|pass|ip|exp|credit (|rfg optional) -> সর্বনিম্ন ৫টি ফিল্ড থাকবে
+            if len(parts) >= 5:
+                u = parts[0].strip()
+                p = parts[1].strip()
+                ip_in_file = parts[2].strip()
+                exp_date_str = parts[3].strip()
+                credits_str = parts[4].strip()
+
                 if u == username and p == password:
+                    # IP ভ্যালিডেশন চেক
+                    if ip_in_file != client_ip:
+                        return None, f"IP Address Unauthorized!"
+
                     # সাবস্ক্রিপশনের মেয়াদ চেক
                     exp_date = datetime.strptime(exp_date_str, "%Y-%m-%d")
                     if datetime.now() > exp_date:
@@ -50,6 +60,7 @@ def fetch_and_validate_user(username, password):
                     return {
                         "username": u,
                         "password": p,
+                        "ip": ip_in_file,
                         "expiry": exp_date_str,
                         "credits": int(credits_str)
                     }, "Success"
@@ -60,7 +71,7 @@ def fetch_and_validate_user(username, password):
 
 
 def update_github_user_credits(username, new_credits):
-    """GitHub-এর users.txt ফাইলটিতে স্থায়ীভাবে নতুন ক্রেডিট আপডেট করার ফাংশন"""
+    """GitHub-এর ফাইলটিতে নতুন ক্রেডিট আপডেট করার ফাংশন"""
     try:
         api_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
         headers = {
@@ -87,11 +98,17 @@ def update_github_user_credits(username, new_credits):
             stripped = line.strip()
             if stripped and not stripped.startswith('#'):
                 parts = stripped.split('|')
-                if len(parts) == 4:
-                    u, p, exp, cred = [x.strip() for x in parts]
+                if len(parts) >= 5:
+                    u = parts[0].strip()
+                    p = parts[1].strip()
+                    ip_val = parts[2].strip()
+                    exp = parts[3].strip()
+                    
+                    # যদি ৬ নম্বর পার্ট বা rfg থাকে তা সংরক্ষণ করবে
+                    rfg_suffix = f"|{parts[5].strip()}" if len(parts) >= 6 else ""
+
                     if u == username:
-                        # নতুন ক্রেডিট বসানো হচ্ছে
-                        line = f"{u}|{p}|{exp}|{new_credits}"
+                        line = f"{u}|{p}|{ip_val}|{exp}|{new_credits}{rfg_suffix}"
                         user_updated = True
             updated_lines.append(line)
 
@@ -151,7 +168,6 @@ HTML_TEMPLATE = """
             position: relative;
         }
 
-        /* Dynamic Particle Canvas */
         #bg-canvas {
             position: fixed;
             top: 0; left: 0;
@@ -168,7 +184,6 @@ HTML_TEMPLATE = """
             margin: 20px;
         }
 
-        /* Top Bar Status */
         .top-bar {
             display: flex;
             justify-content: space-between;
@@ -194,7 +209,6 @@ HTML_TEMPLATE = """
 
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        /* Premium Header */
         .header {
             text-align: center;
             margin-bottom: 22px;
@@ -246,7 +260,6 @@ HTML_TEMPLATE = """
             transform: translateY(-2px);
         }
 
-        /* Conic Animated Border Glass Card */
         .card-wrapper {
             position: relative;
             border-radius: 24px;
@@ -312,7 +325,6 @@ HTML_TEMPLATE = """
             transform: scale(1.01);
         }
 
-        /* 3D Cyber Glowing Button */
         .gen-btn {
             width: 100%;
             padding: 16px;
@@ -341,7 +353,6 @@ HTML_TEMPLATE = """
 
         .gen-btn:active { transform: translateY(-1px); }
 
-        /* User Info Box */
         .user-info-box {
             display: flex;
             justify-content: space-between;
@@ -353,7 +364,6 @@ HTML_TEMPLATE = """
             font-size: 0.85rem;
         }
 
-        /* Response Dashboard */
         .result-container {
             display: none;
             animation: slideUp 0.5s ease forwards;
@@ -408,7 +418,6 @@ HTML_TEMPLATE = """
         .res-value.failed { color: #ff4444; text-shadow: 0 0 10px rgba(255, 68, 68, 0.5); }
         .res-value.accent { color: var(--primary); text-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
 
-        /* Toast Notice */
         .toast {
             position: fixed;
             bottom: 30px;
@@ -427,7 +436,6 @@ HTML_TEMPLATE = """
         .toast.success { background: #00ff88; color: #000; }
         .toast.error { background: #ff4444; color: #fff; }
 
-        /* Loader Overlay */
         .loading-overlay {
             position: fixed;
             top: 0; left: 0;
@@ -485,9 +493,15 @@ HTML_TEMPLATE = """
                     <input type="text" class="auth-input" id="login-user" placeholder="Enter VIP Username">
                 </div>
 
-                <div class="input-group" style="margin-bottom: 22px;">
+                <div class="input-group">
                     <div class="input-label"><i class="fas fa-key"></i> VIP Password</div>
                     <input type="password" class="auth-input" id="login-pass" placeholder="Enter VIP Password">
+                </div>
+
+                <!-- IP Display Box -->
+                <div class="input-group" style="margin-bottom: 22px;">
+                    <div class="input-label"><i class="fas fa-network-wired"></i> VIP User IP</div>
+                    <input type="text" class="auth-input" id="login-ip" placeholder="Detecting IP..." readonly style="color: var(--primary); font-weight: 700;">
                 </div>
 
                 <button class="gen-btn" id="login-btn" onclick="loginUser()">
@@ -499,7 +513,6 @@ HTML_TEMPLATE = """
         <!-- MAIN FOLLOWER PANEL (Hidden until Login) -->
         <div class="card-wrapper hidden" id="main-panel">
             <div class="card">
-                <!-- User Info Header -->
                 <div class="user-info-box">
                     <div><i class="fas fa-user-check" style="color:var(--primary);"></i> <span id="user-display">-</span></div>
                     <div><i class="fas fa-coins" style="color:#ffcc00;"></i> Credit: <span id="credit-display" style="color:#00ff88; font-weight:800;">0</span></div>
@@ -576,6 +589,19 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
+        // IP Auto Fetch
+        window.addEventListener('DOMContentLoaded', () => {
+            fetch('https://api.ipify.org?format=json')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('login-ip').value = data.ip;
+                })
+                .catch(() => {
+                    document.getElementById('login-ip').placeholder = 'Could not detect IP';
+                    document.getElementById('login-ip').readOnly = false;
+                });
+        });
+
         // Web Audio Synthesizer Sound FX
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playCyberSound(type) {
@@ -661,7 +687,6 @@ HTML_TEMPLATE = """
         initCanvas();
         animateParticles();
 
-        // Simulated Ping Update
         setInterval(() => {
             const ping = Math.floor(Math.random() * 15) + 18;
             document.getElementById('ping-val').textContent = ping;
@@ -671,9 +696,11 @@ HTML_TEMPLATE = """
             playCyberSound('click');
             const user = document.getElementById('login-user').value.trim();
             const pass = document.getElementById('login-pass').value.trim();
+            const ip = document.getElementById('login-ip').value.trim();
             const btn = document.getElementById('login-btn');
 
             if(!user || !pass) { showToast('Enter Username & Password!', 'error'); return; }
+            if(!ip) { showToast('Fetching IP, please wait...', 'error'); return; }
 
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> VERIFYING...';
             btn.disabled = true;
@@ -682,7 +709,7 @@ HTML_TEMPLATE = """
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user, password: pass })
+                    body: JSON.stringify({ username: user, password: pass, ip: ip })
                 });
                 const data = await res.json();
 
@@ -774,8 +801,9 @@ def api_login():
     data = request.json or {}
     username = data.get('username', '')
     password = data.get('password', '')
+    client_ip = data.get('ip', request.remote_addr)
 
-    user_info, message = fetch_and_validate_user(username, password)
+    user_info, message = fetch_and_validate_user(username, password, client_ip)
 
     if user_info:
         session['user'] = user_info
@@ -809,7 +837,7 @@ def send_crafland():
             user['credits'] = new_credits
             session['user'] = user
             
-            # ২. গিটহাবের users.txt ফাইলে রিয়েল-টাইমে আপডেট করা
+            # ২. গিটহাবের ফাইালে রিয়েল-টাইমে আপডেট করা
             update_success, update_msg = update_github_user_credits(user['username'], new_credits)
             
             if not update_success:
@@ -823,4 +851,4 @@ def send_crafland():
         return jsonify({"status": "failed", "message": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5626, debug=True)
+    app.run(host='0.0.0.0', port=5627, debug=True)
